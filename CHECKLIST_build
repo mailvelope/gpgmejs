@@ -1,0 +1,3 @@
+- Checklist for build/install:
+
+browsers'  manifests (see README) need allowedextension added, and the path set
