@@ -53,7 +53,42 @@ const inputvalues = {// eslint-disable-line no-unused-vars
             // bogus fingerprint)
             fingerprint: 'CDC3A2B2860625CCBFC5AAAAAC6D1B604967FC4A'
         }
-    }
+    },
+
+    signedMessage: {
+        good: '-----BEGIN PGP SIGNED MESSAGE-----\n' +
+        'Hash: SHA256\n' +
+        '\n' +
+        'Matschige Münsteraner Marshmallows\n' +
+        '-----BEGIN PGP SIGNATURE-----\n' +
+        '\n' +
+        'iQEzBAEBCAAdFiEE1Bc1uRI2/biCBIxaIwFjXu/wywUFAltRoiMACgkQIwFjXu/w\n' +
+        'ywUvagf6ApQbZbTPOROqfTfxAPdtzJsSDKHla6D0G5wom2gJbAVb0B2YS1c3Gjpq\n' +
+        'I4kTKT1W1RRkne0mK9cexf4sjb5DQcV8PLhfmmAJEpljDFei6i/E309BvW4CZ4rG\n' +
+        'jiurf8CkaNkrwn2fXJDaT4taVCX3V5FQAlgLxgOrm1zjiGA4mz98gi5zL4hvZXF9\n' +
+        'dHY0jLwtQMVUO99q+5XC1TJfPsnteWL9m4e/YYPfYJMZZso+/0ib/yX5vHCk7RXH\n' +
+        'CfhY40nMXSYdfl8mDOhvnKcCvy8qxetFv9uCX06OqepAamu/bvxslrzocRyJ/eq0\n' +
+        'T2JfzEN+E7Y3PB8UwLgp/ZRmG8zRrQ==\n' +
+        '=ioB6\n' +
+        '-----END PGP SIGNATURE-----\n',
+        bad: '-----BEGIN PGP SIGNED MESSAGE-----\n' +
+        'Hash: SHA256\n' +
+        '\n' +
+        'Matschige Münchener Marshmallows\n' +
+        '-----BEGIN PGP SIGNATURE-----\n' +
+        '\n' +
+        'iQEzBAEBCAAdFiEE1Bc1uRI2/biCBIxaIwFjXu/wywUFAltRoiMACgkQIwFjXu/w\n' +
+        'ywUvagf6ApQbZbTPOROqfTfxAPdtzJsSDKHla6D0G5wom2gJbAVb0B2YS1c3Gjpq\n' +
+        'I4kTKT1W1RRkne0mK9cexf4sjb5DQcV8PLhfmmAJEpljDFei6i/E309BvW4CZ4rG\n' +
+        'jiurf8CkaNkrwn2fXJDaT4taVCX3V5FQAlgLxgOrm1zjiGA4mz98gi5zL4hvZXF9\n' +
+        'dHY0jLwtQMVUO99q+5XC1TJfPsnteWL9m4e/YYPfYJMZZso+/0ib/yX5vHCk7RXH\n' +
+        'CfhY40nMXSYdfl8mDOhvnKcCvy8qxetFv9uCX06OqepAamu/bvxslrzocRyJ/eq0\n' +
+        'T2JfzEN+E7Y3PB8UwLgp/ZRmG8zRrQ==\n' +
+        '=ioB6\n' +
+        '-----END PGP SIGNATURE-----\n',
+    },
+
+    someInputParameter: 'bad string'
 };
 
 // (Pseudo-)Random String covering all of utf8.
@@ -83,7 +118,7 @@ function bigUint8(megabytes){// eslint-disable-line no-unused-vars
     let maxlength = 1024 * 1024 * megabytes;
     let uint = new Uint8Array(maxlength);
     for (let i= 0; i < maxlength; i++){
-        uint[i] = Math.random() * Math.floor(256);
+        uint[i] = Math.floor(Math.random() * 256);
     }
     return uint;
 }
@@ -213,3 +248,39 @@ const ImportablePublicKey = {// eslint-disable-line no-unused-vars
     '=9WZ7\n' +
     '-----END PGP PUBLIC KEY BLOCK-----\n'
 };
+
+/**
+ * Changes base64 encoded gpg messages
+ * @param {String} msg input message
+ * @param {Number} rate of changes as percentage of message length.
+ * @param {[Number, Number]} p begin and end of the message left untouched (to
+ * preserve) header/footer
+ */
+// eslint-disable-next-line no-unused-vars
+function sabotageMsg(msg, rate = 0.01, p= [35,35]){
+    const iterations = Math.floor(Math.random() * msg.length * rate) + 1;
+    const base64_set =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/';
+    for (let i=0; i < iterations; i++){
+        let str0, str1, str2;
+        const chosePosition = function(){
+            let position =
+                Math.floor( Math.random() * (msg.length - p[0] + p[1]))
+                + p[0];
+            str1 = msg.substring(position,position+1);
+            if (str1 === '\n'){
+                chosePosition();
+            } else {
+                str0 = msg.substring(0,position);
+                str2 = msg.substring(position +1);
+            }
+        };
+        chosePosition();
+        let new1 = function(){
+            let n = base64_set[Math.floor(Math.random() * 64)];
+            return (n === str1) ? new1() : n;
+        };
+        msg = str0.concat(new1()).concat(str2);
+    }
+    return msg;
+}

@@ -194,16 +194,16 @@ function unittests (){
         });
 
         it('Non-cached key async data retrieval', function (done){
-            let key = createKey(kp.validKeyFingerprint);
-            key.get('can_authenticate',false).then(function(result){
+            let key = createKey(kp.validKeyFingerprint, true);
+            key.get('can_authenticate').then(function(result){
                 expect(result).to.be.a('boolean');
                 done();
             });
         });
 
         it('Non-cached key async armored Key', function (done){
-            let key = createKey(kp.validKeyFingerprint);
-            key.get('armored', false).then(function(result){
+            let key = createKey(kp.validKeyFingerprint, true);
+            key.get('armored').then(function(result){
                 expect(result).to.be.a('string');
                 expect(result).to.include('KEY BLOCK-----');
                 done();
@@ -211,17 +211,17 @@ function unittests (){
         });
 
         it('Non-cached key async hasSecret', function (done){
-            let key = createKey(kp.validKeyFingerprint);
-            key.get('hasSecret', false).then(function(result){
+            let key = createKey(kp.validKeyFingerprint, true);
+            key.get('hasSecret').then(function(result){
                 expect(result).to.be.a('boolean');
                 done();
             });
         });
 
         it('Non-cached key async hasSecret (no secret in Key)', function (done){
-            let key = createKey(kp.validFingerprintNoSecret);
+            let key = createKey(kp.validFingerprintNoSecret, true);
             expect(key).to.be.an.instanceof(GPGME_Key);
-            key.get('hasSecret', false).then(function(result){
+            key.get('hasSecret').then(function(result){
                 expect(result).to.be.a('boolean');
                 expect(result).to.equal(false);
                 done();
@@ -253,6 +253,22 @@ function unittests (){
                 expect(key.fingerprint.code).to.equal('KEY_INVALID');
             }
         });
+
+        it('Overwriting getFingerprint does not work', function(){
+            const evilFunction = function(){
+                return 'bad Data';
+            };
+            let key = createKey(kp.validKeyFingerprint, true);
+            expect(key.fingerprint).to.equal(kp.validKeyFingerprint);
+            try {
+                key.getFingerprint = evilFunction;
+            }
+            catch(e) {
+                expect(e).to.be.an.instanceof(TypeError);
+            }
+            expect(key.fingerprint).to.equal(kp.validKeyFingerprint);
+            expect(key.getFingerprint).to.not.equal(evilFunction);
+        });
         // TODO: tests for subkeys
         // TODO: tests for userids
         // TODO: some invalid tests for key/keyring
@@ -272,9 +288,9 @@ function unittests (){
                 keyring.getKeys(null, true).then(function(result){
                     expect(result).to.be.an('array');
                     expect(result[0]).to.be.an.instanceof(GPGME_Key);
-                    expect(result[0].get('armored')).to.be.a('string');
-                    expect(result[0].get('armored')).to.include(
-                        '-----END PGP PUBLIC KEY BLOCK-----');
+                    expect(result[0].get('hasSecret')).to.be.a('boolean');
+                    // expect(result[0].get('armored')).to.include(
+                    //     '-----END PGP PUBLIC KEY BLOCK-----');
                     done();
                 });
             }
@@ -287,9 +303,11 @@ function unittests (){
                     function(result){
                         expect(result).to.be.an('array');
                         expect(result[0]).to.be.an.instanceof(GPGME_Key);
-                        expect(result[0].get('armored')).to.be.a('string');
-                        expect(result[0].get('armored')).to.include(
-                            '-----END PGP PUBLIC KEY BLOCK-----');
+                        expect(result[0].get('hasSecret')).to.be.a('boolean');
+                        // TODO: preparing sync for armored is still in discussion
+                        // expect(result[0].get('armored')).to.be.a('string');
+                        // expect(result[0].get('armored')).to.include(
+                        //     '-----END PGP PUBLIC KEY BLOCK-----');
                         done();
                     }
                 );
@@ -315,7 +333,7 @@ function unittests (){
             let test0 = createMessage('encrypt');
 
             expect(test0).to.be.an.instanceof(GPGME_Message);
-            expect(test0.isComplete).to.be.false;
+            expect(test0.isComplete()).to.be.false;
         });
 
         it('Message is complete after setting mandatory data', function(){
@@ -323,14 +341,14 @@ function unittests (){
             test0.setParameter('data', mp.valid_encrypt_data);
             test0.setParameter('keys', hp.validFingerprints);
 
-            expect(test0.isComplete).to.be.true;
+            expect(test0.isComplete()).to.be.true;
         });
 
         it('Message is not complete after mandatory data is empty', function(){
             let test0 = createMessage('encrypt');
             test0.setParameter('data', '');
             test0.setParameter('keys', hp.validFingerprints);
-            expect(test0.isComplete).to.be.false;
+            expect(test0.isComplete()).to.be.false;
         });
 
         it('Complete Message contains the data that was set', function(){

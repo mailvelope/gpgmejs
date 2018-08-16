@@ -28,225 +28,254 @@ import { gpgme_error } from './Errors';
 import { GPGME_Message, createMessage } from './Message';
 
 /**
- * A Connection handles the nativeMessaging interaction.
+ * A Connection handles the nativeMessaging interaction via a port. As the
+ * protocol only allows up to 1MB of message sent from the nativeApp to the
+ * browser, the connection will stay open until all parts of a communication
+ * are finished. For a new request, a new port will open, to avoid mixing
+ * contexts.
+ * @class
  */
 export class Connection{
 
     constructor(){
-        this.connect();
-    }
+        let _connection = chrome.runtime.connectNative('gpgmejson');
 
-    /**
-     * Retrieves the information about the backend.
-     * @param {Boolean} details (optional) If set to false, the promise will
-     *  just return a connection status
-     * @returns {Promise<Object>} result
-     * @returns {String} result.gpgme Version number of gpgme
-     * @returns {Array<Object>} result.info Further information about the
-     * backends.
-     *      Example:
-     *          "protocol":     "OpenPGP",
-     *          "fname":        "/usr/bin/gpg",
-     *          "version":      "2.2.6",
-     *          "req_version":  "1.4.0",
-     *          "homedir":      "default"
-     */
-    checkConnection(details = true){
-        if (details === true) {
-            return this.post(createMessage('version'));
-        } else {
-            let me = this;
-            return new Promise(function(resolve) {
-                Promise.race([
-                    me.post(createMessage('version')),
-                    new Promise(function(resolve, reject){
-                        setTimeout(function(){
-                            reject(gpgme_error('CONN_TIMEOUT'));
-                        }, 500);
-                    })
-                ]).then(function(){ // success
-                    resolve(true);
-                }, function(){ // failure
-                    resolve(false);
+
+        /**
+         * Immediately closes an open port.
+         */
+        this.disconnect = function () {
+            if (_connection){
+                _connection.disconnect();
+                _connection = null;
+            }
+        };
+
+
+        /**
+        * @typedef {Object} backEndDetails
+        * @property {String} gpgme Version number of gpgme
+        * @property {Array<Object>} info Further information about the backend
+        * and the used applications (Example:
+        * {
+        *          "protocol":     "OpenPGP",
+        *          "fname":        "/usr/bin/gpg",
+        *          "version":      "2.2.6",
+        *          "req_version":  "1.4.0",
+        *          "homedir":      "default"
+        * }
+        */
+
+        /**
+         * Retrieves the information about the backend.
+         * @param {Boolean} details (optional) If set to false, the promise will
+         *  just return if a connection was successful.
+         * @returns {Promise<backEndDetails>|Promise<Boolean>} Details from the
+         * backend
+         * @async
+         */
+        this.checkConnection = function(details = true){
+            const msg = createMessage('version');
+            if (details === true) {
+                return this.post(msg);
+            } else {
+                let me = this;
+                return new Promise(function(resolve) {
+                    Promise.race([
+                        me.post(msg),
+                        new Promise(function(resolve, reject){
+                            setTimeout(function(){
+                                reject(gpgme_error('CONN_TIMEOUT'));
+                            }, 500);
+                        })
+                    ]).then(function(){ // success
+                        resolve(true);
+                    }, function(){ // failure
+                        resolve(false);
+                    });
                 });
-            });
-        }
-    }
+            }
+        };
 
-    /**
-     * Immediately closes the open port.
-     */
-    disconnect() {
-        if (this._connection){
-            this._connection.disconnect();
-            this._connection = null;
-        }
-    }
-
-    /**
-     * Opens a nativeMessaging port.
-     */
-    connect(){
-        if (!this._connection){
-            this._connection = chrome.runtime.connectNative('gpgmejson');
-        }
-    }
-
-    /**
-     * Sends a message and resolves with the answer.
-     * @param {GPGME_Message} message
-     * @returns {Promise<Object>} the gnupg answer, or rejection with error
-     * information.
-     */
-    post(message){
-        if (!message || !(message instanceof GPGME_Message)){
-            this.disconnect();
-            return Promise.reject(gpgme_error(
-                'PARAM_WRONG', 'Connection.post'));
-        }
-        if (message.isComplete !== true){
-            this.disconnect();
-            return Promise.reject(gpgme_error('MSG_INCOMPLETE'));
-        }
-        let me = this;
-        let chunksize = message.chunksize;
-        return new Promise(function(resolve, reject){
-            let answer = new Answer(message);
-            let listener = function(msg) {
-                if (!msg){
-                    me._connection.onMessage.removeListener(listener);
-                    me._connection.disconnect();
-                    reject(gpgme_error('CONN_EMPTY_GPG_ANSWER'));
-                } else {
-                    let answer_result = answer.collect(msg);
-                    if (answer_result !== true){
-                        me._connection.onMessage.removeListener(listener);
-                        me._connection.disconnect();
-                        reject(answer_result);
+        /**
+         * Sends a {@link GPGME_Message} via tghe nativeMessaging port. It
+         * resolves with the completed answer after all parts have been
+         * received and reassembled, or rejects with an {@link GPGME_Error}.
+         *
+         * @param {GPGME_Message} message
+         * @returns {Promise<Object>} The collected answer
+         * @async
+         */
+        this.post = function (message){
+            if (!message || !(message instanceof GPGME_Message)){
+                this.disconnect();
+                return Promise.reject(gpgme_error(
+                    'PARAM_WRONG', 'Connection.post'));
+            }
+            if (message.isComplete() !== true){
+                this.disconnect();
+                return Promise.reject(gpgme_error('MSG_INCOMPLETE'));
+            }
+            let chunksize = message.chunksize;
+            return new Promise(function(resolve, reject){
+                let answer = Object.freeze(new Answer(message));
+                let listener = function(msg) {
+                    if (!msg){
+                        _connection.onMessage.removeListener(listener);
+                        _connection.disconnect();
+                        reject(gpgme_error('CONN_EMPTY_GPG_ANSWER'));
                     } else {
-                        if (msg.more === true){
-                            me._connection.postMessage({
-                                'op': 'getmore',
-                                'chunksize': chunksize
-                            });
+                        let answer_result = answer.collect(msg);
+                        if (answer_result !== true){
+                            _connection.onMessage.removeListener(listener);
+                            _connection.disconnect();
+                            reject(answer_result);
                         } else {
-                            me._connection.onMessage.removeListener(listener);
-                            me._connection.disconnect();
-                            if (answer.message instanceof Error){
-                                reject(answer.message);
+                            if (msg.more === true){
+                                _connection.postMessage({
+                                    'op': 'getmore',
+                                    'chunksize': chunksize
+                                });
                             } else {
-                                resolve(answer.message);
+                                _connection.onMessage.removeListener(listener);
+                                _connection.disconnect();
+                                const message = answer.getMessage();
+                                if (message instanceof Error){
+                                    reject(message);
+                                } else {
+                                    resolve(message);
+                                }
                             }
                         }
                     }
+                };
+                _connection.onMessage.addListener(listener);
+                if (permittedOperations[message.operation].pinentry){
+                    return _connection.postMessage(message.message);
+                } else {
+                    return Promise.race([
+                        _connection.postMessage(message.message),
+                        function(resolve, reject){
+                            setTimeout(function(){
+                                _connection.disconnect();
+                                reject(gpgme_error('CONN_TIMEOUT'));
+                            }, 5000);
+                        }]).then(function(result){
+                        return result;
+                    }, function(reject){
+                        if(!(reject instanceof Error)) {
+                            _connection.disconnect();
+                            return gpgme_error('GNUPG_ERROR', reject);
+                        } else {
+                            return reject;
+                        }
+                    });
                 }
-            };
-            me._connection.onMessage.addListener(listener);
-            if (permittedOperations[message.operation].pinentry){
-                return me._connection.postMessage(message.message);
-            } else {
-                return Promise.race([
-                    me._connection.postMessage(message.message),
-                    function(resolve, reject){
-                        setTimeout(function(){
-                            me._connection.disconnect();
-                            reject(gpgme_error('CONN_TIMEOUT'));
-                        }, 5000);
-                    }]).then(function(result){
-                    return result;
-                }, function(reject){
-                    if(!(reject instanceof Error)) {
-                        me._connection.disconnect();
-                        return gpgme_error('GNUPG_ERROR', reject);
-                    } else {
-                        return reject;
-                    }
-                });
-            }
-        });
+            });
+        };
     }
 }
 
 /**
  * A class for answer objects, checking and processing the return messages of
  * the nativeMessaging communication.
- * @param {String} operation The operation, to look up validity of returning
- * messages
+ * @protected
  */
 class Answer{
 
+    /**
+     * @param {GPGME_Message} message
+     */
     constructor(message){
-        this.operation = message.operation;
-        this.expect = message.expect;
-    }
+        const operation = message.operation;
+        const expected = message.getExpect();
+        let response_b64 = null;
 
-    collect(msg){
-        if (typeof(msg) !== 'object' || !msg.hasOwnProperty('response')) {
-            return gpgme_error('CONN_UNEXPECTED_ANSWER');
-        }
-        if (this._responseb64 === undefined){
-            //this._responseb64 = [msg.response];
-            this._responseb64 = msg.response;
-            return true;
-        } else {
-            //this._responseb64.push(msg.response);
-            this._responseb64 += msg.response;
-            return true;
-        }
-    }
+        this.getOperation = function(){
+            return operation;
+        };
 
-    get message(){
-        if (this._responseb64 === undefined){
-            return gpgme_error('CONN_UNEXPECTED_ANSWER');
-        }
-        // let _decodedResponse = JSON.parse(atob(this._responseb64.join('')));
-        let _decodedResponse = JSON.parse(atob(this._responseb64));
-        let _response = {};
-        let messageKeys = Object.keys(_decodedResponse);
-        let poa = permittedOperations[this.operation].answer;
-        if (messageKeys.length === 0){
-            return gpgme_error('CONN_UNEXPECTED_ANSWER');
-        }
-        for (let i= 0; i < messageKeys.length; i++){
-            let key = messageKeys[i];
-            switch (key) {
-            case 'type':
-                if (_decodedResponse.type === 'error'){
-                    return (gpgme_error('GNUPG_ERROR', _decodedResponse.msg));
-                } else if (poa.type.indexOf(_decodedResponse.type) < 0){
-                    return gpgme_error('CONN_UNEXPECTED_ANSWER');
-                }
-                break;
-            case 'base64':
-                break;
-            case 'msg':
-                if (_decodedResponse.type === 'error'){
-                    return (gpgme_error('GNUPG_ERROR', _decodedResponse.msg));
-                }
-                break;
-            default:
-                if (!poa.data.hasOwnProperty(key)){
-                    return gpgme_error('CONN_UNEXPECTED_ANSWER');
-                }
-                if( typeof(_decodedResponse[key]) !== poa.data[key] ){
-                    return gpgme_error('CONN_UNEXPECTED_ANSWER');
-                }
-                if (_decodedResponse.base64 === true
-                    && poa.data[key] === 'string'
-                    && this.expect === undefined
-                ){
-                    _response[key] = decodeURIComponent(
-                        atob(_decodedResponse[key]).split('').map(
-                            function(c) {
-                                return '%' +
-                            ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                            }).join(''));
-                } else {
-                    _response[key] = _decodedResponse[key];
-                }
-                break;
+        this.getExpect = function(){
+            return expected;
+        };
+
+        /**
+         * Adds incoming base64 encoded data to the existing response
+         * @param {*} msg base64 encoded data.
+         * @returns {Boolean}
+         *
+         * @private
+         */
+        this.collect = function (msg){
+            if (typeof(msg) !== 'object' || !msg.hasOwnProperty('response')) {
+                return gpgme_error('CONN_UNEXPECTED_ANSWER');
             }
-        }
-        return _response;
+            if (response_b64 === null){
+                response_b64 = msg.response;
+                return true;
+            } else {
+                response_b64 += msg.response;
+                return true;
+            }
+        };
+        /**
+         * Returns the base64 encoded answer data with the content verified
+         * against {@link permittedOperations}.
+         */
+        this.getMessage = function (){
+            if (response_b64 === undefined){
+                return gpgme_error('CONN_UNEXPECTED_ANSWER');
+            }
+            let _decodedResponse = JSON.parse(atob(response_b64));
+            let _response = {};
+            let messageKeys = Object.keys(_decodedResponse);
+            let poa = permittedOperations[this.getOperation()].answer;
+            if (messageKeys.length === 0){
+                return gpgme_error('CONN_UNEXPECTED_ANSWER');
+            }
+            for (let i= 0; i < messageKeys.length; i++){
+                let key = messageKeys[i];
+                switch (key) {
+                case 'type':
+                    if (_decodedResponse.type === 'error'){
+                        return (gpgme_error('GNUPG_ERROR',
+                            decodeURIComponent(escape(_decodedResponse.msg))));
+                    } else if (poa.type.indexOf(_decodedResponse.type) < 0){
+                        return gpgme_error('CONN_UNEXPECTED_ANSWER');
+                    }
+                    break;
+                case 'base64':
+                    break;
+                case 'msg':
+                    if (_decodedResponse.type === 'error'){
+                        return (gpgme_error('GNUPG_ERROR',
+                            _decodedResponse.msg));
+                    }
+                    break;
+                default:
+                    if (!poa.data.hasOwnProperty(key)){
+                        return gpgme_error('CONN_UNEXPECTED_ANSWER');
+                    }
+                    if( typeof(_decodedResponse[key]) !== poa.data[key] ){
+                        return gpgme_error('CONN_UNEXPECTED_ANSWER');
+                    }
+                    if (_decodedResponse.base64 === true
+                        && poa.data[key] === 'string'
+                        && this.getExpect() !== 'base64'
+                    ){
+                        _response[key] = decodeURIComponent(
+                            atob(_decodedResponse[key]).split('').map(
+                                function(c) {
+                                    return '%' +
+                                ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                                }).join(''));
+                    } else {
+                        _response[key] = _decodedResponse[key];
+                    }
+                    break;
+                }
+            }
+            return _response;
+        };
     }
 }

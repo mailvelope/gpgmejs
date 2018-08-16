@@ -21,6 +21,9 @@
  *     Maximilian Krambach <mkrambach@intevation.de>
  */
 
+/**
+ * Listing of all possible error codes and messages of a {@link GPGME_Error}.
+ */
 const err_list = {
     // Connection
     'CONN_NO_CONNECT': {
@@ -107,31 +110,40 @@ const err_list = {
 };
 
 /**
- * Checks the given error code and returns an error object with some
- * information about meaning and origin
+ * Checks the given error code and returns an {@link GPGME_Error} error object
+ * with some information about meaning and origin
  * @param {*} code Error code. Should be in err_list or 'GNUPG_ERROR'
  * @param {*} info Error message passed through if code is 'GNUPG_ERROR'
+ * @returns {GPGME_Error}
  */
 export function gpgme_error(code = 'GENERIC_ERROR', info){
     if (err_list.hasOwnProperty(code)){
         if (err_list[code].type === 'error'){
-            return new GPGME_Error(code);
+            return Object.freeze(new GPGME_Error(code));
         }
         if (err_list[code].type === 'warning'){
             // eslint-disable-next-line no-console
-            console.warn(code + ': ' + err_list[code].msg);
+            // console.warn(code + ': ' + err_list[code].msg);
         }
         return null;
     } else if (code === 'GNUPG_ERROR'){
-        return new GPGME_Error(code, info);
+        return Object.freeze(new GPGME_Error(code, info));
     }
     else {
-        return new GPGME_Error('GENERIC_ERROR');
+        return Object.freeze(new GPGME_Error('GENERIC_ERROR'));
     }
 }
 
+/**
+ * An error class with additional info about the origin of the error, as string
+ * @property {String} code Short description of origin and type of the error
+ * @property {String} msg Additional info
+ * @class
+ * @protected
+ * @extends Error
+ */
 class GPGME_Error extends Error{
-    constructor(code, msg=''){
+    constructor(code = 'GENERIC_ERROR', msg=''){
         if (code === 'GNUPG_ERROR' && typeof(msg) === 'string'){
             super(msg);
         } else if (err_list.hasOwnProperty(code)){
@@ -143,12 +155,12 @@ class GPGME_Error extends Error{
         } else {
             super(err_list['GENERIC_ERROR'].msg);
         }
-        this.code = code || 'GENERIC_ERROR';
+        this.getCode = function(){
+            return code;
+        };
     }
-    set code(value){
-        this._code = value;
-    }
+
     get code(){
-        return this._code;
+        return this.getCode();
     }
 }

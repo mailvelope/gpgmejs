@@ -20,12 +20,14 @@
  * Author(s):
  *     Maximilian Krambach <mkrambach@intevation.de>
  */
-/* global describe, it, before, expect, Gpgmejs */
-/* global bigString, inputvalues */
 
-describe('Long running Encryption/Decryption', function () {
+/* global describe, it, before, expect, Gpgmejs */
+/* global bigString, inputvalues, sabotageMsg*/
+
+describe('Decryption', function () {
     let context = null;
     const good_fpr = inputvalues.encrypt.good.fingerprint;
+
     before(function(done){
         const prm = Gpgmejs.init();
         prm.then(function(gpgmejs){
@@ -34,23 +36,27 @@ describe('Long running Encryption/Decryption', function () {
         });
     });
 
-    for (let i=0; i < 101; i++) {
-        it('Successful encrypt/decrypt completely random data '
-            + (i+1) + '/100', function (done) {
-            const data = bigString(2*1024*1024);
-            context.encrypt(data,good_fpr).then(function (answer){
-                expect(answer).to.not.be.empty;
-                expect(answer.data).to.be.a('string');
-                expect(answer.data).to.include('BEGIN PGP MESSAGE');
-                expect(answer.data).to.include('END PGP MESSAGE');
-                context.decrypt(answer.data).then(function(result){
-                    expect(result).to.not.be.empty;
-                    expect(result.data).to.be.a('string');
-                    expect(result.data).to.equal(data);
+    it('Decryption of random string fails', function (done) {
+        let data = bigString(20 * 1024);
+        context.decrypt(data).then(
+            function(){},
+            function(error){
+                expect(error).to.be.an('error');
+                expect(error.code).to.equal('GNUPG_ERROR');
+                done();
+            });
+    });
+
+    it('Decryption of slightly corrupted message fails', function (done) {
+        const data = bigString(10000);
+        context.encrypt(data, good_fpr).then(function(enc){
+            context.decrypt(sabotageMsg(enc.data)).then(
+                function(){},
+                function(error){
+                    expect(error).to.be.an('error');
+                    expect(error.code).to.equal('GNUPG_ERROR');
                     done();
                 });
-            });
-        }).timeout(15000);
-    }
-
+        });
+    }).timeout(5000);
 });
