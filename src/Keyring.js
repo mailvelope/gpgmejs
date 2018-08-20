@@ -38,12 +38,11 @@ export class GPGME_Keyring {
          *
          * @param {String | Array<String>} pattern (optional) A pattern to
          * search for in userIds or KeyIds.
-         * @param {Boolean} prepare_sync (optional) if set to true, the
-         * 'hasSecret' and 'armored' properties will be fetched for the Keys as
-         * well. These require additional calls to gnupg, resulting in a
-         * performance hungry operation. Calling them here enables direct,
-         * synchronous use of these properties for all keys, without having to
-         * resort to a refresh() first.
+         * @param {Boolean} prepare_sync (optional) if set to true, most data
+         * (with the exception of armored Key blocks) will be cached for the
+         * Keys. This enables direct, synchronous use of these properties for
+         * all keys. It does not check for changes on the backend. The cached
+         * information can be updated with the {@link Key.refresh} method.
          * @param {Boolean} search (optional) retrieve Keys from external
          * servers with the method(s) defined in gnupg (e.g. WKD/HKP lookup)
          * @returns {Promise<Array<GPGME_Key>>}
@@ -97,11 +96,10 @@ export class GPGME_Keyring {
                                                 break;
                                             }
                                         }
-                                        // TODO getArmor() to be used in sync
                                     }
                                 }
-                                let k = createKey(result.keys[i].fingerprint);
-                                k.setKeyData(result.keys[i]);
+                                let k = createKey(result.keys[i].fingerprint,
+                                    !prepare_sync, result.keys[i]);
                                 resultset.push(k);
                             }
                             resolve(resultset);
@@ -170,7 +168,7 @@ export class GPGME_Keyring {
          * @async
          * @static
          */
-        this.getDefaultKey = function() {
+        this.getDefaultKey = function(prepare_sync = false) {
             let me = this;
             return new Promise(function(resolve, reject){
                 let msg = createMessage('config_opt');
@@ -202,8 +200,9 @@ export class GPGME_Keyring {
                                 for (let i=0; i< result.keys.length; i++ ) {
                                     if (result.keys[i].invalid === false) {
                                         let k = createKey(
-                                            result.keys[i].fingerprint);
-                                        k.setKeyData(result.keys[i]);
+                                            result.keys[i].fingerprint,
+                                            !prepare_sync,
+                                            result.keys[i]);
                                         resolve(k);
                                         break;
                                     } else if (i === result.keys.length - 1){
@@ -274,6 +273,17 @@ export class GPGME_Keyring {
                 msg.post().then(function(response){
                     let infos = {};
                     let fprs = [];
+                    let summary = {};
+                    for (let i=0; i < feedbackValues.length; i++ ){
+                        summary[feedbackValues[i]] =
+                            response.result[feedbackValues[i]];
+                    }
+                    if (!response.result.hasOwnProperty('imports') ||
+                        response.result.imports.length === 0
+                    ){
+                        resolve({Keys:[],summary: summary});
+                        return;
+                    }
                     for (let res=0; res<response.result.imports.length; res++){
                         let result = response.result.imports[res];
                         let status = '';
@@ -307,15 +317,7 @@ export class GPGME_Keyring {
                                     status: infos[result[i].fingerprint].status
                                 });
                             }
-                            let summary = {};
-                            for (let i=0; i < feedbackValues.length; i++ ){
-                                summary[feedbackValues[i]] =
-                                    response[feedbackValues[i]];
-                            }
-                            resolve({
-                                Keys:resultset,
-                                summary: summary
-                            });
+                            resolve({Keys:resultset,summary: summary});
                         }, function(error){
                             reject(error);
                         });
@@ -327,7 +329,7 @@ export class GPGME_Keyring {
                                 status: infos[fprs[i]].status
                             });
                         }
-                        resolve(resultset);
+                        resolve({Keys:resultset,summary:summary});
                     }
 
                 }, function(error){
@@ -388,6 +390,8 @@ export class GPGME_Keyring {
                 if (expires){
                     msg.setParameter('expires',
                         Math.floor(expires.valueOf()/1000));
+                } else {
+                    msg.setParameter('expires', 0);
                 }
                 msg.post().then(function(response){
                     me.getKeys(response.fingerprint, true).then(

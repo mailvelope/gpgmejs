@@ -22,7 +22,6 @@
  */
 
 import { gpgme_error } from './Errors';
-import { GPGME_Key } from './Key';
 
 /**
  * Tries to return an array of fingerprints, either from input fingerprints or
@@ -50,7 +49,7 @@ export function toKeyIdArray(input){
             }
         } else if (typeof(input[i]) === 'object'){
             let fpr = '';
-            if (input[i] instanceof GPGME_Key){
+            if (input[i].hasOwnProperty('fingerprint')){
                 fpr = input[i].fingerprint;
             } else if (input[i].hasOwnProperty('primaryKey') &&
                 input[i].primaryKey.hasOwnProperty('getFingerprint')){
@@ -108,4 +107,31 @@ export function isFingerprint(value){
  */
 export function isLongId(value){
     return hextest(value, 16);
+}
+
+/**
+ * Recursively decodes input (utf8) to output (utf-16; javascript) strings
+ * @param {Object | Array | String} property
+ */
+export function decode(property){
+    if (typeof property === 'string'){
+        return decodeURIComponent(escape(property));
+    } else if (Array.isArray(property)){
+        let res = [];
+        for (let arr=0; arr < property.length; arr++){
+            res.push(decode(property[arr]));
+        }
+        return res;
+    } else if (typeof property === 'object'){
+        const keys = Object.keys(property);
+        if (keys.length){
+            let res = {};
+            for (let k=0; k < keys.length; k++ ){
+                res[keys[k]] = decode(property[keys[k]]);
+            }
+            return res;
+        }
+        return property;
+    }
+    return property;
 }

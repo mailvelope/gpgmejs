@@ -127,7 +127,8 @@ export const permittedOperations = {
                 'data': 'string',
                 'base64': 'boolean',
                 'mime': 'boolean',
-                'signatures': 'object'
+                'signatures': 'object',
+                'info': 'object'
             }
         }
     },
