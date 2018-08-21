@@ -120,10 +120,10 @@ const err_list = {
  * @param {*} info Error message passed through if code is 'GNUPG_ERROR'
  * @returns {GPGME_Error}
  */
-export function gpgme_error(code = 'GENERIC_ERROR', info){
+export function gpgme_error (code = 'GENERIC_ERROR', info){
     if (err_list.hasOwnProperty(code)){
         if (err_list[code].type === 'error'){
-            return Object.freeze(new GPGME_Error(code));
+            return new GPGME_Error(code);
         }
         if (err_list[code].type === 'warning'){
             // eslint-disable-next-line no-console
@@ -131,10 +131,10 @@ export function gpgme_error(code = 'GENERIC_ERROR', info){
         }
         return null;
     } else if (code === 'GNUPG_ERROR'){
-        return Object.freeze(new GPGME_Error(code, info));
+        return new GPGME_Error(code, info);
     }
     else {
-        return Object.freeze(new GPGME_Error('GENERIC_ERROR'));
+        return new GPGME_Error('GENERIC_ERROR');
     }
 }
 
@@ -147,8 +147,9 @@ export function gpgme_error(code = 'GENERIC_ERROR', info){
  * @extends Error
  */
 class GPGME_Error extends Error{
-    constructor(code = 'GENERIC_ERROR', msg=''){
-        if (code === 'GNUPG_ERROR' && typeof(msg) === 'string'){
+    constructor (code = 'GENERIC_ERROR', msg=''){
+
+        if (code === 'GNUPG_ERROR' && typeof (msg) === 'string'){
             super(msg);
         } else if (err_list.hasOwnProperty(code)){
             if (msg){
@@ -159,12 +160,10 @@ class GPGME_Error extends Error{
         } else {
             super(err_list['GENERIC_ERROR'].msg);
         }
-        this.getCode = function(){
-            return code;
-        };
+        this._code = code;
     }
 
-    get code(){
-        return this.getCode();
+    get code (){
+        return this._code;
     }
 }

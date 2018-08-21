@@ -28,9 +28,9 @@ describe('Decryption', function () {
     let context = null;
     const good_fpr = inputvalues.encrypt.good.fingerprint;
 
-    before(function(done){
+    before(function (done){
         const prm = Gpgmejs.init();
-        prm.then(function(gpgmejs){
+        prm.then(function (gpgmejs){
             context = gpgmejs;
             done();
         });
@@ -39,8 +39,8 @@ describe('Decryption', function () {
     it('Decryption of random string fails', function (done) {
         let data = bigString(20 * 1024);
         context.decrypt(data).then(
-            function(){},
-            function(error){
+            function (){},
+            function (error){
                 expect(error).to.be.an('error');
                 expect(error.code).to.equal('GNUPG_ERROR');
                 done();
@@ -49,14 +49,30 @@ describe('Decryption', function () {
 
     it('Decryption of slightly corrupted message fails', function (done) {
         const data = bigString(10000);
-        context.encrypt(data, good_fpr).then(function(enc){
+        context.encrypt(data, good_fpr).then(function (enc){
             context.decrypt(sabotageMsg(enc.data)).then(
-                function(){},
-                function(error){
+                function (){},
+                function (error){
                     expect(error).to.be.an('error');
                     expect(error.code).to.equal('GNUPG_ERROR');
                     done();
                 });
         });
     }).timeout(5000);
+
+
+    it('decrypt/verify operations return proper information', function (done){
+        const data = inputvalues.encryptSignedMessage;
+        context.decrypt(data).then(function (result){
+            expect(result).to.be.an('object');
+            expect(result.signatures).to.be.an('object');
+            expect(result.signatures.all_valid).to.be.true;
+            expect(result.signatures.count).to.equal(1);
+            expect(result.signatures.signatures.good).to.be.an('array');
+            expect(
+                result.signatures.signatures.good[0].fingerprint).to.equal(
+                good_fpr);
+            done();
+        });
+    });
 });

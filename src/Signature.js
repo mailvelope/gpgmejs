@@ -30,25 +30,27 @@ import { gpgme_error } from './Errors';
  * {@link expNote}.
  * @returns {GPGME_Signature|GPGME_Error} Signature Object
  */
-export function createSignature(sigObject){
+export function createSignature (sigObject){
     if (
-        typeof(sigObject) !=='object' ||
+        typeof (sigObject) !=='object' ||
         !sigObject.hasOwnProperty('summary') ||
         !sigObject.hasOwnProperty('fingerprint') ||
         !sigObject.hasOwnProperty('timestamp')
-        //TODO check if timestamp is mandatory in specification
+        // TODO check if timestamp is mandatory in specification
     ){
         return gpgme_error('SIG_WRONG');
     }
     let keys = Object.keys(sigObject);
     for (let i=0; i< keys.length; i++){
-        if ( typeof(sigObject[keys[i]]) !== expKeys[keys[i]] ){
+        // eslint-disable-next-line no-use-before-define
+        if ( typeof (sigObject[keys[i]]) !== expKeys[keys[i]] ){
             return gpgme_error('SIG_WRONG');
         }
     }
     let sumkeys = Object.keys(sigObject.summary);
     for (let i=0; i< sumkeys.length; i++){
-        if ( typeof(sigObject.summary[sumkeys[i]]) !== expSum[sumkeys[i]] ){
+        // eslint-disable-next-line no-use-before-define
+        if ( typeof (sigObject.summary[sumkeys[i]]) !== expSum[sumkeys[i]] ){
             return gpgme_error('SIG_WRONG');
         }
     }
@@ -60,13 +62,14 @@ export function createSignature(sigObject){
             let notation = sigObject.notations[i];
             let notekeys = Object.keys(notation);
             for (let j=0; j < notekeys.length; j++){
-                if ( typeof(notation[notekeys[j]]) !== expNote[notekeys[j]] ){
+                // eslint-disable-next-line no-use-before-define
+                if ( typeof (notation[notekeys[j]]) !== expNote[notekeys[j]] ){
                     return gpgme_error('SIG_WRONG');
                 }
             }
         }
     }
-    return Object.freeze(new GPGME_Signature(sigObject));
+    return new GPGME_Signature(sigObject);
 }
 
 
@@ -81,102 +84,66 @@ export function createSignature(sigObject){
  */
 class GPGME_Signature {
 
-    constructor(sigObject){
-        let _rawSigObject = sigObject;
+    constructor (sigObject){
+        this._rawSigObject = sigObject;
+    }
+    get fingerprint (){
+        if (!this._rawSigObject.fingerprint){
+            return gpgme_error('SIG_WRONG');
+        } else {
+            return this._rawSigObject.fingerprint;
+        }
+    }
 
-        this.getFingerprint = function(){
-            if (!_rawSigObject.fingerprint){
-                return gpgme_error('SIG_WRONG');
-            } else {
-                return _rawSigObject.fingerprint;
+    /**
+     * The expiration of this Signature as Javascript date, or null if
+     * signature does not expire
+     * @returns {Date | null}
+     */
+    get expiration (){
+        if (!this._rawSigObject.exp_timestamp){
+            return null;
+        }
+        return new Date(this._rawSigObject.exp_timestamp* 1000);
+    }
+
+    /**
+     * The creation date of this Signature in Javascript Date
+     * @returns {Date}
+     */
+    get timestamp (){
+        return new Date(this._rawSigObject.timestamp * 1000);
+    }
+
+    /**
+     * The overall validity of the key. If false, errorDetails may contain
+     * additional information.
+     */
+    get valid () {
+        if (this._rawSigObject.summary.valid === true){
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * gives more information on non-valid signatures. Refer to the gpgme
+     * docs https://www.gnupg.org/documentation/manuals/gpgme/Verify.html
+     * for details on the values.
+     * @returns {Object} Object with boolean properties
+     */
+    get errorDetails (){
+        let properties = ['revoked', 'key-expired', 'sig-expired',
+            'key-missing', 'crl-missing', 'crl-too-old', 'bad-policy',
+            'sys-error'];
+        let result = {};
+        for (let i=0; i< properties.length; i++){
+            if ( this._rawSigObject.hasOwnProperty(properties[i]) ){
+                result[properties[i]] = this._rawSigObject[properties[i]];
             }
-        };
-
-        /**
-         * The expiration of this Signature as Javascript date, or null if
-         * signature does not expire
-         * @returns {Date | null}
-         */
-        this.getExpiration = function(){
-            if (!_rawSigObject.exp_timestamp){
-                return null;
-            }
-            return new Date(_rawSigObject.exp_timestamp* 1000);
-        };
-
-        /**
-         * The creation date of this Signature in Javascript Date
-         * @returns {Date}
-         */
-        this.getTimestamp= function (){
-            return new Date(_rawSigObject.timestamp * 1000);
-        };
-
-        /**
-         * The overall validity of the key. If false, errorDetails may contain
-         * additional information.
-         */
-        this.getValid= function() {
-            if (_rawSigObject.summary.valid === true){
-                return true;
-            } else {
-                return false;
-            }
-        };
-
-        /**
-         * gives more information on non-valid signatures. Refer to the gpgme
-         * docs https://www.gnupg.org/documentation/manuals/gpgme/Verify.html
-         * for details on the values.
-         * @returns {Object} Object with boolean properties
-         */
-        this.getErrorDetails = function (){
-            let properties = ['revoked', 'key-expired', 'sig-expired',
-                'key-missing', 'crl-missing', 'crl-too-old', 'bad-policy',
-                'sys-error'];
-            let result = {};
-            for (let i=0; i< properties.length; i++){
-                if ( _rawSigObject.hasOwnProperty(properties[i]) ){
-                    result[properties[i]] = _rawSigObject[properties[i]];
-                }
-            }
-            return result;
-        };
-    }
-
-    /**
-     * Convenience getter for {@link getFingerprint}
-     */
-    get fingerprint(){
-        return this.getFingerprint();
-    }
-
-    /**
-     * Convenience getter for {@link getExpiration}
-     */
-    get expiration(){
-        return this.getExpiration();
-    }
-
-    /**
-     * Convenience getter for {@link getTimeStamp}
-     */
-    get timestamp(){
-        return this.getTimestamp();
-    }
-
-    /**
-     * Convenience getter for {@link getValid}
-     */
-    get valid(){
-        return this.getValid();
-    }
-
-    /**
-     * Convenience getter for {@link getErrorDetails}
-     */
-    get errorDetails(){
-        return this.getErrorDetails();
+        }
+        return result;
     }
 }
 

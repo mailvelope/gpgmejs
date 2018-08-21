@@ -48,7 +48,7 @@
 */
 export const permittedOperations = {
     encrypt: {
-        pinentry: true, //TODO only with signing_keys
+        pinentry: true, // TODO only with signing_keys
         required: {
             'keys': {
                 allowed: ['string'],
@@ -127,8 +127,8 @@ export const permittedOperations = {
                 'data': 'string',
                 'base64': 'boolean',
                 'mime': 'boolean',
-                'signatures': 'object',
-                'info': 'object'
+                'info': 'object',
+                'dec_info': 'object'
             }
         }
     },
@@ -137,7 +137,7 @@ export const permittedOperations = {
         pinentry: true,
         required: {
             'data': {
-                allowed: ['string']},
+                allowed: ['string'] },
             'keys': {
                 allowed: ['string'],
                 array_allowed: true
@@ -331,13 +331,16 @@ export const permittedOperations = {
             algo: {
                 allowed: ['string']
             },
+            'subkey-algo': {
+                allowed: ['string']
+            },
             expires: {
                 allowed: ['number'],
             }
         },
         answer: {
             type: [''],
-            data: {'fingerprint': 'string'}
+            data: { 'fingerprint': 'string' }
         }
     },
 
@@ -365,9 +368,9 @@ export const permittedOperations = {
                 data: 'string',
                 base64:'boolean',
                 info: 'object'
-                // file_name: Optional string of the plaintext file name.
-                //  is_mime: Boolean if the messages claims it is MIME.
-                // signatures: Array of signatures
+                // info.file_name: Optional string of the plaintext file name.
+                // info.is_mime: Boolean if the messages claims it is MIME.
+                // info.signatures: Array of signatures
             }
         }
     },

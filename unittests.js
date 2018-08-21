@@ -18,8 +18,8 @@
  * SPDX-License-Identifier: LGPL-2.1+
  */
 
-import './node_modules/mocha/mocha'; /*global mocha, it, describe*/
-import './node_modules/chai/chai';/*global chai*/
+import './node_modules/mocha/mocha'; /* global mocha, it, describe*/
+import './node_modules/chai/chai';/* global chai*/
 import { helper_params as hp } from './unittest_inputvalues';
 import { message_params as mp } from './unittest_inputvalues';
 import { whatever_params as wp } from './unittest_inputvalues';
@@ -27,20 +27,20 @@ import { key_params as kp } from './unittest_inputvalues';
 import { Connection } from './src/Connection';
 import { gpgme_error } from './src/Errors';
 import { toKeyIdArray , isFingerprint } from './src/Helpers';
-import { GPGME_Key , createKey } from './src/Key';
+import { createKey } from './src/Key';
 import { GPGME_Keyring } from './src/Keyring';
-import {GPGME_Message, createMessage} from './src/Message';
+import { GPGME_Message, createMessage } from './src/Message';
 
 mocha.setup('bdd');
 const expect = chai.expect;
 chai.config.includeStack = true;
 
 function unittests (){
-    describe('Connection testing', function(){
+    describe('Connection testing', function (){
 
-        it('Connecting', function(done) {
+        it('Connecting', function (done) {
             let conn0 = new Connection;
-            conn0.checkConnection().then(function(answer) {
+            conn0.checkConnection().then(function (answer) {
                 expect(answer).to.not.be.empty;
                 expect(answer.gpgme).to.not.be.undefined;
                 expect(answer.gpgme).to.be.a('string');
@@ -52,12 +52,12 @@ function unittests (){
 
         });
 
-        it('Disconnecting', function(done) {
+        it('Disconnecting', function (done) {
             let conn0 = new Connection;
-            conn0.checkConnection(false).then(function(answer) {
+            conn0.checkConnection(false).then(function (answer) {
                 expect(answer).to.be.true;
                 conn0.disconnect();
-                conn0.checkConnection(false).then(function(result) {
+                conn0.checkConnection(false).then(function (result) {
                     expect(result).to.be.false;
                     done();
                 });
@@ -65,9 +65,9 @@ function unittests (){
         });
     });
 
-    describe('Error Object handling', function(){
+    describe('Error Object handling', function (){
         // TODO: new GPGME_Error codes
-        it('check the Timeout error', function(){
+        it('check the Timeout error', function (){
             let test0 = gpgme_error('CONN_TIMEOUT');
 
             expect(test0).to.be.an.instanceof(Error);
@@ -75,7 +75,7 @@ function unittests (){
         });
 
         it('Error Object returns generic code if code is not listed',
-            function(){
+            function (){
                 let test0 = gpgme_error(hp.invalidErrorCode);
 
                 expect(test0).to.be.an.instanceof(Error);
@@ -83,22 +83,22 @@ function unittests (){
             }
         );
 
-        it('Warnings like PARAM_IGNORED should not return errors', function(){
+        it('Warnings like PARAM_IGNORED should not return errors', function (){
             let test0 = gpgme_error('PARAM_IGNORED');
 
             expect(test0).to.be.null;
         });
     });
 
-    describe('Fingerprint checking', function(){
+    describe('Fingerprint checking', function (){
 
-        it('isFingerprint(): valid Fingerprint', function(){
+        it('isFingerprint(): valid Fingerprint', function (){
             let test0  = isFingerprint(hp.validFingerprint);
 
             expect(test0).to.be.true;
         });
 
-        it('isFingerprint(): invalid Fingerprints', function(){
+        it('isFingerprint(): invalid Fingerprints', function (){
             for (let i=0; i < hp.invalidFingerprints.length; i++){
                 let test0 = isFingerprint(hp.invalidFingerprints[i]);
 
@@ -107,24 +107,16 @@ function unittests (){
         });
     });
 
-    describe('toKeyIdArray() (converting input to fingerprint)', function(){
+    describe('toKeyIdArray() (converting input to fingerprint)', function (){
 
-        it('Correct fingerprint string', function(){
+        it('Correct fingerprint string', function (){
             let test0 = toKeyIdArray(hp.validFingerprint);
 
             expect(test0).to.be.an('array');
             expect(test0).to.include(hp.validFingerprint);
         });
 
-        it('correct GPGME_Key', function(){
-            expect(hp.validGPGME_Key).to.be.an.instanceof(GPGME_Key);
-            let test0 = toKeyIdArray(hp.validGPGME_Key);
-
-            expect(test0).to.be.an('array');
-            expect(test0).to.include(hp.validGPGME_Key.fingerprint);
-        });
-
-        it('openpgpjs-like object', function(){
+        it('openpgpjs-like object', function (){
             let test0 = toKeyIdArray(hp.valid_openpgplike);
 
             expect(test0).to.be.an('array').with.lengthOf(1);
@@ -132,33 +124,33 @@ function unittests (){
                 hp.valid_openpgplike.primaryKey.getFingerprint());
         });
 
-        it('Array of valid inputs', function(){
+        it('Array of valid inputs', function (){
             let test0 = toKeyIdArray(hp.validKeys);
             expect(test0).to.be.an('array');
             expect(test0).to.have.lengthOf(hp.validKeys.length);
         });
 
-        it('Incorrect inputs', function(){
+        it('Incorrect inputs', function (){
 
-            it('valid Long ID', function(){
+            it('valid Long ID', function (){
                 let test0 = toKeyIdArray(hp.validLongId);
 
                 expect(test0).to.be.empty;
             });
 
-            it('invalidFingerprint', function(){
+            it('invalidFingerprint', function (){
                 let test0 = toKeyIdArray(hp.invalidFingerprint);
 
                 expect(test0).to.be.empty;
             });
 
-            it('invalidKeyArray', function(){
+            it('invalidKeyArray', function (){
                 let test0 = toKeyIdArray(hp.invalidKeyArray);
 
                 expect(test0).to.be.empty;
             });
 
-            it('Partially invalid array', function(){
+            it('Partially invalid array', function (){
                 let test0 = toKeyIdArray(hp.invalidKeyArray_OneBad);
 
                 expect(test0).to.be.an('array');
@@ -168,16 +160,10 @@ function unittests (){
         });
     });
 
-    describe('GPGME_Key', function(){
-
-        it('correct Key initialization', function(){
+    describe('GPGME_Key', function (){
+        it('Key has data after a first refresh', function (done) {
             let key = createKey(kp.validKeyFingerprint);
-            expect(key).to.be.an.instanceof(GPGME_Key);
-        });
-        it('Key has data after a first refresh', function(done) {
-            let key = createKey(kp.validKeyFingerprint);
-            key.refreshKey().then(function(key2){
-                expect(key2).to.be.an.instanceof(GPGME_Key);
+            key.refreshKey().then(function (key2){
                 expect(key2.get).to.be.a('function');
                 for (let i=0; i < kp.validKeyProperties.length; i++) {
                     let prop = key2.get(kp.validKeyProperties[i]);
@@ -195,7 +181,7 @@ function unittests (){
 
         it('Non-cached key async data retrieval', function (done){
             let key = createKey(kp.validKeyFingerprint, true);
-            key.get('can_authenticate').then(function(result){
+            key.get('can_authenticate').then(function (result){
                 expect(result).to.be.a('boolean');
                 done();
             });
@@ -203,7 +189,7 @@ function unittests (){
 
         it('Non-cached key async armored Key', function (done){
             let key = createKey(kp.validKeyFingerprint, true);
-            key.get('armored').then(function(result){
+            key.get('armored').then(function (result){
                 expect(result).to.be.a('string');
                 expect(result).to.include('KEY BLOCK-----');
                 done();
@@ -212,7 +198,7 @@ function unittests (){
 
         it('Non-cached key async hasSecret', function (done){
             let key = createKey(kp.validKeyFingerprint, true);
-            key.get('hasSecret').then(function(result){
+            key.get('hasSecret').then(function (result){
                 expect(result).to.be.a('boolean');
                 done();
             });
@@ -220,25 +206,24 @@ function unittests (){
 
         it('Non-cached key async hasSecret (no secret in Key)', function (done){
             let key = createKey(kp.validFingerprintNoSecret, true);
-            expect(key).to.be.an.instanceof(GPGME_Key);
-            key.get('hasSecret').then(function(result){
+            key.get('hasSecret').then(function (result){
                 expect(result).to.be.a('boolean');
                 expect(result).to.equal(false);
                 done();
             });
         });
 
-        it('Querying non-existing Key returns an error', function(done) {
+        it('Querying non-existing Key returns an error', function (done) {
             let key = createKey(kp.invalidKeyFingerprint);
-            key.refreshKey().then(function(){},
-                function(error){
+            key.refreshKey().then(function (){},
+                function (error){
                     expect(error).to.be.an.instanceof(Error);
                     expect(error.code).to.equal('KEY_NOKEY');
                     done();
                 });
         });
 
-        it('createKey returns error if parameters are wrong', function(){
+        it('createKey returns error if parameters are wrong', function (){
             for (let i=0; i< 4; i++){
                 let key0 = createKey(wp.four_invalid_params[i]);
                 expect(key0).to.be.an.instanceof(Error);
@@ -246,63 +231,48 @@ function unittests (){
             }
         });
 
-        it('malformed GPGME_Key cannot be used', function(){
-            for (let i=0; i < 4; i++){
-                let key = new GPGME_Key(wp.four_invalid_params[i]);
-                expect(key.fingerprint).to.be.an.instanceof(Error);
-                expect(key.fingerprint.code).to.equal('KEY_INVALID');
-            }
-        });
-
-        it('Overwriting getFingerprint does not work', function(){
-            const evilFunction = function(){
-                return 'bad Data';
-            };
-            let key = createKey(kp.validKeyFingerprint, true);
-            expect(key.fingerprint).to.equal(kp.validKeyFingerprint);
-            try {
-                key.getFingerprint = evilFunction;
-            }
-            catch(e) {
-                expect(e).to.be.an.instanceof(TypeError);
-            }
-            expect(key.fingerprint).to.equal(kp.validKeyFingerprint);
-            expect(key.getFingerprint).to.not.equal(evilFunction);
-        });
-        // TODO: tests for subkeys
-        // TODO: tests for userids
-        // TODO: some invalid tests for key/keyring
+    //     it('Overwriting getFingerprint does not work', function(){
+    //         const evilFunction = function(){
+    //             return 'bad Data';
+    //         };
+    //         let key = createKey(kp.validKeyFingerprint, true);
+    //         expect(key.fingerprint).to.equal(kp.validKeyFingerprint);
+    //         try {
+    //             key.getFingerprint = evilFunction;
+    //         }
+    //         catch(e) {
+    //             expect(e).to.be.an.instanceof(TypeError);
+    //         }
+    //         expect(key.fingerprint).to.equal(kp.validKeyFingerprint);
+    //         expect(key.getFingerprint).to.not.equal(evilFunction);
+    //     });
     });
 
-    describe('GPGME_Keyring', function(){
+    describe('GPGME_Keyring', function (){
 
-        it('correct Keyring initialization', function(){
+        it('correct Keyring initialization', function (){
             let keyring = new GPGME_Keyring;
             expect(keyring).to.be.an.instanceof(GPGME_Keyring);
             expect(keyring.getKeys).to.be.a('function');
         });
 
         it('Loading Keys from Keyring, to be used synchronously',
-            function(done){
+            function (done){
                 let keyring = new GPGME_Keyring;
-                keyring.getKeys(null, true).then(function(result){
+                keyring.getKeys(null, true).then(function (result){
                     expect(result).to.be.an('array');
-                    expect(result[0]).to.be.an.instanceof(GPGME_Key);
                     expect(result[0].get('hasSecret')).to.be.a('boolean');
-                    // expect(result[0].get('armored')).to.include(
-                    //     '-----END PGP PUBLIC KEY BLOCK-----');
                     done();
                 });
             }
         );
 
         it('Loading specific Key from Keyring, to be used synchronously',
-            function(done){
+            function (done){
                 let keyring = new GPGME_Keyring;
                 keyring.getKeys(kp.validKeyFingerprint, true).then(
-                    function(result){
+                    function (result){
                         expect(result).to.be.an('array');
-                        expect(result[0]).to.be.an.instanceof(GPGME_Key);
                         expect(result[0].get('hasSecret')).to.be.a('boolean');
                         done();
                     }
@@ -310,10 +280,10 @@ function unittests (){
             }
         );
 
-        it('Querying non-existing Key from Keyring', function(done){
+        it('Querying non-existing Key from Keyring', function (done){
             let keyring = new GPGME_Keyring;
             keyring.getKeys(kp.invalidKeyFingerprint, true).then(
-                function(result){
+                function (result){
                     expect(result).to.be.an('array');
                     expect(result.length).to.equal(0);
                     done();
@@ -323,16 +293,16 @@ function unittests (){
 
     });
 
-    describe('GPGME_Message', function(){
+    describe('GPGME_Message', function (){
 
-        it('creating encrypt Message', function(){
+        it('creating encrypt Message', function (){
             let test0 = createMessage('encrypt');
 
             expect(test0).to.be.an.instanceof(GPGME_Message);
             expect(test0.isComplete()).to.be.false;
         });
 
-        it('Message is complete after setting mandatory data', function(){
+        it('Message is complete after setting mandatory data', function (){
             let test0 = createMessage('encrypt');
             test0.setParameter('data', mp.valid_encrypt_data);
             test0.setParameter('keys', hp.validFingerprints);
@@ -340,14 +310,14 @@ function unittests (){
             expect(test0.isComplete()).to.be.true;
         });
 
-        it('Message is not complete after mandatory data is empty', function(){
+        it('Message is not complete after mandatory data is empty', function (){
             let test0 = createMessage('encrypt');
             test0.setParameter('data', '');
             test0.setParameter('keys', hp.validFingerprints);
             expect(test0.isComplete()).to.be.false;
         });
 
-        it('Complete Message contains the data that was set', function(){
+        it('Complete Message contains the data that was set', function (){
             let test0 = createMessage('encrypt');
             test0.setParameter('data', mp.valid_encrypt_data);
             test0.setParameter('keys', hp.validFingerprints);
@@ -360,20 +330,20 @@ function unittests (){
                 mp.valid_encrypt_data);
         });
 
-        it ('Not accepting non-allowed operation', function(){
+        it ('Not accepting non-allowed operation', function (){
             let test0 = createMessage(mp.invalid_op_action);
 
             expect(test0).to.be.an.instanceof(Error);
             expect(test0.code).to.equal('MSG_WRONG_OP');
         });
-        it('Not accepting wrong parameter type', function(){
+        it('Not accepting wrong parameter type', function (){
             let test0 = createMessage(mp.invalid_op_type);
 
             expect(test0).to.be.an.instanceof(Error);
             expect(test0.code).to.equal('PARAM_WRONG');
         });
 
-        it('Not accepting wrong parameter name', function(){
+        it('Not accepting wrong parameter name', function (){
             let test0 = createMessage(mp.invalid_param_test.valid_op);
             for (let i=0;
                 i < mp.invalid_param_test.invalid_param_names.length; i++){
@@ -386,7 +356,7 @@ function unittests (){
             }
         });
 
-        it('Not accepting wrong parameter value', function(){
+        it('Not accepting wrong parameter value', function (){
             let test0 = createMessage(mp.invalid_param_test.valid_op);
             for (let j=0;
                 j < mp.invalid_param_test.invalid_values_0.length; j++){
@@ -402,4 +372,4 @@ function unittests (){
 
 }
 
-export default {unittests};
+export default { unittests };
