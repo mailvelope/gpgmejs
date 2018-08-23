@@ -35,23 +35,24 @@ export class GPGME_Keyring {
     /**
      * Queries Keys (all Keys or a subset) from gnupg.
      *
-     * @param {String | Array<String>} pattern (optional) A pattern to
+     * @param {Object} options:
+     * @param {String | Array<String>} options.pattern (optional) A pattern to
      * search for in userIds or KeyIds.
-     * @param {Boolean} prepare_sync (optional) if set to true, most data
-     * (with the exception of armored Key blocks) will be cached for the
+     * @param {Boolean} options.prepare_sync (optional) if set to true, most
+     * data (with the exception of armored Key blocks) will be cached for the
      * Keys. This enables direct, synchronous use of these properties for
      * all keys. It does not check for changes on the backend. The cached
      * information can be updated with the {@link Key.refresh} method.
-     * @param {Boolean} search (optional) retrieve Keys from external
+     * @param {Boolean} options.search (optional) retrieve Keys from external
      * servers with the method(s) defined in gnupg (e.g. WKD/HKP lookup)
      * @returns {Promise<Array<GPGME_Key>>}
      * @static
      * @async
      */
-    getKeys (pattern, prepare_sync=false, search=false){
+    getKeys ({ pattern, prepare_sync = false, search = false }){
         return new Promise(function (resolve, reject) {
             let msg = createMessage('keylist');
-            if (pattern !== undefined && pattern !== null){
+            if (pattern) {
                 msg.setParameter('keys', pattern);
             }
             msg.setParameter('sigs', true);
@@ -126,31 +127,34 @@ export class GPGME_Keyring {
     /**
      * Fetches the armored public Key blocks for all Keys matching the
      * pattern (if no pattern is given, fetches all keys known to gnupg).
-     * @param {String|Array<String>} pattern (optional) The Pattern to
+     * @param {Object} options (optional)
+     * @param {String|Array<String>} options.pattern The Pattern to
      * search for
-     * @param {Boolean} with_secret_fpr (optional) also return a list of
+     * @param {Boolean} options.with_secret_fpr also return a list of
      * fingerprints for the keys that have a secret key available
      * @returns {Promise<exportResult|GPGME_Error>} Object containing the
      * armored Key(s) and additional information.
      * @static
      * @async
      */
-    getKeysArmored (pattern, with_secret_fpr) {
+    getKeysArmored ({ pattern, with_secret_fpr }) {
         return new Promise(function (resolve, reject) {
             let msg = createMessage('export');
             msg.setParameter('armor', true);
             if (with_secret_fpr === true) {
                 msg.setParameter('with-sec-fprs', true);
             }
-            if (pattern !== undefined && pattern !== null){
+            if (pattern){
                 msg.setParameter('keys', pattern);
             }
             msg.post().then(function (answer){
                 const result = { armored: answer.data };
-                if (with_secret_fpr === true
-                    && answer.hasOwnProperty('sec-fprs')
-                ) {
-                    result.secret_fprs = answer['sec-fprs'];
+                if (with_secret_fpr === true){
+                    if (answer.hasOwnProperty('sec-fprs')){
+                        result.secret_fprs = answer['sec-fprs'];
+                    } else {
+                        result.secret_fprs = [];
+                    }
                 }
                 resolve(result);
             }, function (error){
@@ -199,7 +203,12 @@ export class GPGME_Keyring {
                             reject(gpgme_error('KEY_NO_DEFAULT'));
                         } else {
                             for (let i=0; i< result.keys.length; i++ ) {
-                                if (result.keys[i].invalid === false) {
+                                if (
+                                    result.keys[i].invalid === false &&
+                                    result.keys[i].expired === false &&
+                                    result.keys[i].revoked === false &&
+                                    result.keys[i].can_sign === true
+                                ) {
                                     let k = createKey(
                                         result.keys[i].fingerprint,
                                         !prepare_sync,
@@ -300,7 +309,6 @@ export class GPGME_Keyring {
                     changes.signature = (result.status & 4) === 4;
                     changes.subkey = (result.status & 8) === 8;
                     // 16 new secret key: not implemented
-
                     fprs.push(result.fingerprint);
                     infos[result.fingerprint] = {
                         changes: changes,
@@ -309,19 +317,20 @@ export class GPGME_Keyring {
                 }
                 let resultset = [];
                 if (prepare_sync === true){
-                    me.getKeys(fprs, true).then(function (result){
-                        for (let i=0; i < result.length; i++) {
-                            resultset.push({
-                                key: result[i],
-                                changes:
-                                    infos[result[i].fingerprint].changes,
-                                status: infos[result[i].fingerprint].status
-                            });
-                        }
-                        resolve({ Keys:resultset,summary: summary });
-                    }, function (error){
-                        reject(error);
-                    });
+                    me.getKeys({ pattern: fprs, prepare_sync: true })
+                        .then(function (result){
+                            for (let i=0; i < result.length; i++) {
+                                resultset.push({
+                                    key: result[i],
+                                    changes:
+                                        infos[result[i].fingerprint].changes,
+                                    status: infos[result[i].fingerprint].status
+                                });
+                            }
+                            resolve({ Keys:resultset,summary: summary });
+                        }, function (error){
+                            reject(error);
+                        });
                 } else {
                     for (let i=0; i < fprs.length; i++) {
                         resultset.push({
@@ -364,45 +373,40 @@ export class GPGME_Keyring {
      * Generates a new Key pair directly in gpg, and returns a GPGME_Key
      * representing that Key. Please note that due to security concerns,
      * secret Keys can not be deleted or exported from inside gpgme.js.
-     *
-     * @param {String} userId The user Id, e.g. 'Foo Bar <foo@bar.baz>'
-     * @param {String} algo (optional) algorithm (and optionally key size)
-     * to be used. See {@link supportedKeyAlgos} below for supported
+     * @param {Object} options
+     * @param {String} option.userId The user Id, e.g. 'Foo Bar <foo@bar.baz>'
+     * @param {String} option.algo (optional) algorithm (and optionally key
+     * size) to be used. See {@link supportedKeyAlgos} below for supported
      * values. If ommitted, 'default' is used.
-     * @param {Number} expires (optional) Expiration time in seconds from now.
-     * If not set or set to 0, expiration will be 'never'
-     * @param {String} subkey_algo (optional) algorithm of the encryption
-     * subkey. If ommited the same as algo is used.
+     * @param {Number} option.expires (optional) Expiration time in seconds
+     * from now. If not set or set to 0, expiration will be 'never'
+     * @param {String} options.subkey_algo (optional) algorithm of the
+     * encryption subkey. If ommited the same as algo is used.
      *
      * @return {Promise<Key|GPGME_Error>}
      * @async
      */
-    generateKey (userId, algo = 'default', expires, subkey_algo){
-        if (
-            typeof (userId) !== 'string' ||
+    generateKey ({ userId, algo = 'default', expires= 0, subkey_algo }){
+        if (typeof userId !== 'string'
             // eslint-disable-next-line no-use-before-define
-            supportedKeyAlgos.indexOf(algo) < 0 ||
-            (expires && !( Number.isInteger(expires) || expires < 0 ))
+            || (algo && supportedKeyAlgos.indexOf(algo) < 0 )
+            || (!Number.isInteger(expires) || expires < 0 )
         ){
             return Promise.reject(gpgme_error('PARAM_WRONG'));
         }
         // eslint-disable-next-line no-use-before-define
-        if (subkey_algo && supportedKeyAlgos.indexOf(subkey_algo) < 0 ){
+        if (subkey_algo && supportedKeyAlgos.indexOf(subkey_algo) < 0){
             return Promise.reject(gpgme_error('PARAM_WRONG'));
         }
         let me = this;
         return new Promise(function (resolve, reject){
             let msg = createMessage('createkey');
             msg.setParameter('userid', userId);
-            msg.setParameter('algo', algo );
+            msg.setParameter('algo', algo);
             if (subkey_algo) {
-                msg.setParameter('subkey-algo', subkey_algo );
+                msg.setParameter('subkey-algo',subkey_algo );
             }
-            if (expires){
-                msg.setParameter('expires', expires);
-            } else {
-                msg.setParameter('expires', 0);
-            }
+            msg.setParameter('expires', expires);
             msg.post().then(function (response){
                 me.getKeys(response.fingerprint, true).then(
                     // TODO prepare_sync?

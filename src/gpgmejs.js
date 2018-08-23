@@ -30,8 +30,12 @@ import { createSignature } from './Signature';
 
 /**
  * @typedef {Object} decrypt_result
- * @property {String} data The decrypted data
- * @property {Boolean} base64 indicating whether data is base64 encoded.
+ * @property {String|Uint8Array} data The decrypted data
+ * @property {String} format Indicating how the data was converted after being
+ * received from gpgme.
+ *      'string': Data was decoded into an utf-8 string,
+ *      'base64': Data was not processed and is a base64 string
+ *      'uint8': data was turned into a Uint8Array
  * @property {Boolean} is_mime (optional) the data claims to be a MIME
  * object.
  * @property {String} file_name (optional) the original file name
@@ -51,7 +55,8 @@ import { createSignature } from './Signature';
 /**
  * @typedef {Object} encrypt_result The result of an encrypt operation
  * @property {String} data The encrypted message
- * @property {Boolean} base64 Indicating whether data is base64 encoded.
+ * @property {Boolean} base64 Indicating whether returning payload data is
+ * base64 encoded
  */
 
 /**
@@ -109,37 +114,44 @@ export class GpgME {
 
     /**
      * Encrypt (and optionally sign) data
-     * @param {String|Object} data text/data to be encrypted as String. Also
-     * accepts Objects with a getText method
-     * @param {inputKeys} publicKeys
+     * @param {Object} options
+     * @param {String|Object} options.data text/data to be encrypted as String.
+     * Also accepts Objects with a getText method
+     * @param {inputKeys} options.publicKeys
      * Keys used to encrypt the message
-     * @param {inputKeys} secretKeys (optional) Keys used to sign the
+     * @param {inputKeys} opions.secretKeys (optional) Keys used to sign the
      * message. If Keys are present, the  operation requested is assumed
      * to be 'encrypt and sign'
-     * @param {Boolean} base64 (optional) The data will be interpreted as
-     * base64 encoded data.
-     * @param {Boolean} armor (optional) Request the output as armored
+     * @param {Boolean} options.base64 (optional) The data will be interpreted
+     * as base64 encoded data.
+     * @param {Boolean} options.armor (optional) Request the output as armored
      * block.
-     * @param {Boolean} wildcard (optional) If true, recipient information
-     * will not be added to the message.
+     * @param {Boolean} options.wildcard (optional) If true, recipient
+     * information will not be added to the message.
      * @param {Object} additional use additional valid gpg options as
      * defined in {@link permittedOperations}
      * @returns {Promise<encrypt_result>} Object containing the encrypted
      * message and additional info.
      * @async
      */
-    encrypt (data, publicKeys, secretKeys, base64=false, armor=true,
-        wildcard=false, additional = {}){
+    encrypt ({ data, publicKeys, secretKeys, base64 = false, armor = true,
+        wildcard, additional = {} }){
+        if (!data || !publicKeys){
+            return Promise.reject(gpgme_error('MSG_INCOMPLETE'));
+        }
         let msg = createMessage('encrypt');
         if (msg instanceof Error){
             return Promise.reject(msg);
         }
         msg.setParameter('armor', armor);
-        msg.setParameter('always-trust', true);
+
         if (base64 === true) {
             msg.setParameter('base64', true);
         }
         let pubkeys = toKeyIdArray(publicKeys);
+        if (!pubkeys.length) {
+            return Promise.reject(gpgme_error('MSG_NO_KEYS'));
+        }
         msg.setParameter('keys', pubkeys);
         let sigkeys = toKeyIdArray(secretKeys);
         if (sigkeys.length > 0) {
@@ -170,15 +182,19 @@ export class GpgME {
 
     /**
     * Decrypts a Message
-    * @param {String|Object} data text/data to be decrypted. Accepts
+    * @param {Object} options
+    * @param {String|Object} options.data text/data to be decrypted. Accepts
     * Strings and Objects with a getText method
-    * @param {Boolean} base64 (optional) false if the data is an armored
-    * block, true if it is base64 encoded binary data
+    * @param {Boolean} options.base64 (optional) false if the data is an
+    * armored block, true if it is base64 encoded binary data
+    * @param {String} options.expect (optional) can be set to 'uint8' or
+    * 'base64'. Does no extra decoding on the data, and returns the decoded
+    * data as either Uint8Array or unprocessed(base64 encoded) string.
     * @returns {Promise<decrypt_result>} Decrypted Message and information
     * @async
     */
-    decrypt (data, base64=false){
-        if (data === undefined){
+    decrypt ({ data, base64, expect }){
+        if (!data){
             return Promise.reject(gpgme_error('MSG_EMPTY'));
         }
         let msg = createMessage('decrypt');
@@ -189,11 +205,14 @@ export class GpgME {
         if (base64 === true){
             msg.setParameter('base64', true);
         }
+        if (expect === 'base64' || expect === 'uint8'){
+            msg.expected = expect;
+        }
         putData(msg, data);
         return new Promise(function (resolve, reject){
             msg.post().then(function (result){
                 let _result = { data: result.data };
-                _result.base64 = result.base64 ? true: false;
+                _result.format = result.format ? result.format : null;
                 if (result.hasOwnProperty('dec_info')){
                     _result.is_mime = result.dec_info.is_mime ? true: false;
                     if (result.dec_info.file_name) {
@@ -223,36 +242,35 @@ export class GpgME {
 
     /**
      * Sign a Message
-     * @param {String|Object} data text/data to be signed. Accepts Strings
-     * and Objects with a getText method.
-     * @param {inputKeys} keys The key/keys to use for signing
-     * @param {String} mode The signing mode. Currently supported:
+     * @param {Object} options Signing options
+     * @param {String|Object} options.data text/data to be signed. Accepts
+     * Strings and Objects with a getText method.
+     * @param {inputKeys} options.keys The key/keys to use for signing
+     * @param {String} options.mode The signing mode. Currently supported:
      *  'clearsign':The Message is embedded into the signature;
      *  'detached': The signature is stored separately
-     * @param {Boolean} base64 input is considered base64
+     * @param {Boolean} options.base64 input is considered base64
      * @returns {Promise<signResult>}
      * @async
      */
-    sign (data, keys, mode='clearsign', base64=false) {
-        if (data === undefined){
+    sign ({ data, keys, mode = 'clearsign', base64 }){
+        if (!data){
             return Promise.reject(gpgme_error('MSG_EMPTY'));
         }
         let key_arr = toKeyIdArray(keys);
         if (key_arr.length === 0){
             return Promise.reject(gpgme_error('MSG_NO_KEYS'));
         }
-        let msg = createMessage('sign');
 
+        let msg = createMessage('sign');
         msg.setParameter('keys', key_arr);
         if (base64 === true){
             msg.setParameter('base64', true);
         }
         msg.setParameter('mode', mode);
         putData(msg, data);
+
         return new Promise(function (resolve,reject) {
-            if (mode ==='detached'){
-                msg.expected ='base64';
-            }
             msg.post().then( function (message) {
                 if (mode === 'clearsign'){
                     resolve({
@@ -272,22 +290,27 @@ export class GpgME {
 
     /**
      * Verifies data.
-     * @param {String|Object} data text/data to be verified. Accepts Strings
-     * and Objects with a getText method
-     * @param {String} (optional) A detached signature. If not present,
+     * @param {Object} options
+     * @param {String|Object} options.data text/data to be verified. Accepts
+     * Strings and Objects with a getText method
+     * @param {String} options.signature A detached signature. If not present,
      * opaque mode is assumed
-     * @param {Boolean} (optional) Data and signature are base64 encoded
+     * @param {Boolean} options.base64 Indicating that data and signature are
+     * base64 encoded
      * @returns {Promise<verifyResult>}
      *@async
     */
-    verify (data, signature, base64 = false){
+    verify ({ data, signature, base64 }){
+        if (!data){
+            return Promise.reject(gpgme_error('PARAM_WRONG'));
+        }
         let msg = createMessage('verify');
         let dt = putData(msg, data);
         if (dt instanceof Error){
             return Promise.reject(dt);
         }
         if (signature){
-            if (typeof (signature)!== 'string'){
+            if (typeof signature !== 'string'){
                 return Promise.reject(gpgme_error('PARAM_WRONG'));
             } else {
                 msg.setParameter('signature', signature);
@@ -336,14 +359,14 @@ function putData (message, data){
     }
     if (!data){
         return gpgme_error('PARAM_WRONG');
-    } else if (typeof (data) === 'string') {
+    } else if (typeof data === 'string') {
         message.setParameter('data', data);
     } else if (
-        typeof (data) === 'object' &&
-        typeof (data.getText) === 'function'
+        (typeof data === 'object') &&
+        (typeof data.getText === 'function')
     ){
         let txt = data.getText();
-        if (typeof (txt) === 'string'){
+        if (typeof txt === 'string'){
             message.setParameter('data', txt);
         } else {
             return gpgme_error('PARAM_WRONG');
