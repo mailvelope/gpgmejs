@@ -33,9 +33,11 @@ import { createSignature } from './Signature';
  * @property {String|Uint8Array} data The decrypted data
  * @property {String} format Indicating how the data was converted after being
  * received from gpgme.
+ *      'ascii': Data was ascii-encoded and no further processed
  *      'string': Data was decoded into an utf-8 string,
  *      'base64': Data was not processed and is a base64 string
  *      'uint8': data was turned into a Uint8Array
+ *
  * @property {Boolean} is_mime (optional) the data claims to be a MIME
  * object.
  * @property {String} file_name (optional) the original file name
@@ -55,8 +57,12 @@ import { createSignature } from './Signature';
 /**
  * @typedef {Object} encrypt_result The result of an encrypt operation
  * @property {String} data The encrypted message
- * @property {Boolean} base64 Indicating whether returning payload data is
- * base64 encoded
+ * @property {String} format Indicating how the data was converted after being
+ *  received from gpgme.
+ *      'ascii': Data was ascii-encoded and no further processed
+ *      'string': Data was decoded into an utf-8 string,
+ *      'base64': Data was not processed and is a base64 string
+ *      'uint8': Data was turned into a Uint8Array
  */
 
 /**
@@ -78,7 +84,6 @@ import { createSignature } from './Signature';
  * @property {Boolean} data: The verified data
  * @property {Boolean} is_mime (optional) the data claims to be a MIME
  * object.
- * @property {String} file_name (optional) the original file name
  * @property {signatureDetails} signatures Verification details for
  * signatures
  */
@@ -138,7 +143,10 @@ export class GpgME {
      * @async
      */
     encrypt ({ data, publicKeys, secretKeys, base64 = false, armor = true,
-        wildcard, always_trust = true, additional = {} }){
+        wildcard, always_trust = true, additional = {} } = {}){
+        if (typeof arguments[0] !== 'object') {
+            return Promise.reject(gpgme_error('PARAM_WRONG'));
+        }
         if (!data || !publicKeys){
             return Promise.reject(gpgme_error('MSG_INCOMPLETE'));
         }
@@ -199,7 +207,10 @@ export class GpgME {
     * @returns {Promise<decrypt_result>} Decrypted Message and information
     * @async
     */
-    decrypt ({ data, base64, expect }){
+    decrypt ({ data, base64, expect } = {}){
+        if (typeof arguments[0] !== 'object') {
+            return Promise.reject(gpgme_error('PARAM_WRONG'));
+        }
         if (!data){
             return Promise.reject(gpgme_error('MSG_EMPTY'));
         }
@@ -217,28 +228,28 @@ export class GpgME {
         putData(msg, data);
         return new Promise(function (resolve, reject){
             msg.post().then(function (result){
-                let _result = { data: result.data };
-                _result.format = result.format ? result.format : null;
+                let returnValue = { data: result.data };
+                returnValue.format = result.format ? result.format : null;
                 if (result.hasOwnProperty('dec_info')){
-                    _result.is_mime = result.dec_info.is_mime ? true: false;
+                    returnValue.is_mime = result.dec_info.is_mime ? true: false;
                     if (result.dec_info.file_name) {
-                        _result.file_name = result.dec_info.file_name;
+                        returnValue.file_name = result.dec_info.file_name;
                     }
                 }
-                if (!result.file_name) {
-                    _result.file_name = null;
+                if (!returnValue.file_name) {
+                    returnValue.file_name = null;
                 }
                 if (result.hasOwnProperty('info')
                     && result.info.hasOwnProperty('signatures')
                     && Array.isArray(result.info.signatures)
                 ) {
-                    _result.signatures = collectSignatures(
+                    returnValue.signatures = collectSignatures(
                         result.info.signatures);
                 }
-                if (_result.signatures instanceof Error){
-                    reject(_result.signatures);
+                if (returnValue.signatures instanceof Error){
+                    reject(returnValue.signatures);
                 } else {
-                    resolve(_result);
+                    resolve(returnValue);
                 }
             }, function (error){
                 reject(error);
@@ -259,7 +270,10 @@ export class GpgME {
      * @returns {Promise<signResult>}
      * @async
      */
-    sign ({ data, keys, mode = 'clearsign', base64 }){
+    sign ({ data, keys, mode = 'clearsign', base64 } = {}){
+        if (typeof arguments[0] !== 'object') {
+            return Promise.reject(gpgme_error('PARAM_WRONG'));
+        }
         if (!data){
             return Promise.reject(gpgme_error('MSG_EMPTY'));
         }
@@ -306,7 +320,10 @@ export class GpgME {
      * @returns {Promise<verifyResult>}
      *@async
     */
-    verify ({ data, signature, base64 }){
+    verify ({ data, signature, base64 } = {}){
+        if (typeof arguments[0] !== 'object') {
+            return Promise.reject(gpgme_error('PARAM_WRONG'));
+        }
         if (!data){
             return Promise.reject(gpgme_error('PARAM_WRONG'));
         }
@@ -330,18 +347,18 @@ export class GpgME {
                 if (!message.info || !message.info.signatures){
                     reject(gpgme_error('SIG_NO_SIGS'));
                 } else {
-                    let _result = {
+                    let returnValue = {
                         signatures: collectSignatures(message.info.signatures)
                     };
-                    if (_result.signatures instanceof Error){
-                        reject(_result.signatures);
+                    if (returnValue.signatures instanceof Error){
+                        reject(returnValue.signatures);
                     } else {
-                        _result.is_mime = message.info.is_mime? true: false;
+                        returnValue.is_mime = message.info.is_mime? true: false;
                         if (message.info.filename){
-                            _result.file_name = message.info.filename;
+                            returnValue.file_name = message.info.filename;
                         }
-                        _result.data = message.data;
-                        resolve(_result);
+                        returnValue.data = message.data;
+                        resolve(returnValue);
                     }
                 }
             }, function (error){
