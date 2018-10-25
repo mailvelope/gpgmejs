@@ -14,7 +14,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * License along with this program; if not, see <https://www.gnu.org/licenses/>.
  * SPDX-License-Identifier: LGPL-2.1+
  *
  * Author(s):
@@ -169,7 +169,7 @@ export function atobArray (base64) {
  * Turns a Uint8Array into an utf8-String
  * <pre>
  * Taken and slightly adapted from
- *  http://www.onicos.com/staff/iz/amuse/javascript/expert/utf.txt
+ *  https://www.onicos.com/staff/iz/amuse/javascript/expert/utf.txt
  * (original header:
  *   utf.js - UTF-8 <=> UTF-16 convertion
  *

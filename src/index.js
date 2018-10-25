@@ -14,7 +14,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this program; if not, see <http://www.gnu.org/licenses/>.
+ * License along with this program; if not, see <https://www.gnu.org/licenses/>.
  * SPDX-License-Identifier: LGPL-2.1+
  *
  * Author(s):
@@ -38,7 +38,7 @@ import { Connection } from './Connection';
  * @returns {Promise<GpgME>}
  * @async
  */
-function init ({ timeout = 500 } = {}){
+function init ({ timeout = 1000 } = {}){
     return new Promise(function (resolve, reject){
         const connection = new Connection;
         connection.checkConnection(false, timeout).then(
