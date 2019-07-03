@@ -29,10 +29,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA
+# You should have received a copy of the GNU Lesser General Public
+# License along with this program; if not, see <https://gnu.org/licenses/>.
+# SPDX-License-Identifier: LGPL-2.1-or-later
 
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -105,8 +104,8 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-build_triplet = x86_64-apple-darwin17.7.0
-host_triplet = x86_64-apple-darwin17.7.0
+build_triplet = x86_64-apple-darwin18.6.0
+host_triplet = x86_64-apple-darwin18.6.0
 subdir = lang/js
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/ax_cxx_compile_stdcxx.m4 \
@@ -124,7 +123,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 DIST_COMMON = $(srcdir)/Makefile.am $(am__DIST_COMMON)
 mkinstalldirs = $(SHELL) $(top_srcdir)/build-aux/mkinstalldirs
-CONFIG_HEADER = $(top_builddir)/config.h
+CONFIG_HEADER = $(top_builddir)/conf/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 AM_V_P = $(am__v_P_$(V))
@@ -219,13 +218,14 @@ AUTOCONF = ${SHELL} /Users/toberndo/dev/gpgme/gpgme/build-aux/missing autoconf
 AUTOHEADER = ${SHELL} /Users/toberndo/dev/gpgme/gpgme/build-aux/missing autoheader
 AUTOMAKE = ${SHELL} /Users/toberndo/dev/gpgme/gpgme/build-aux/missing automake-1.16
 AWK = awk
-BUILD_FILEVERSION = 1,11,2,5006
-BUILD_REVISION = 138e1dde
+BUILD_FILEVERSION = 1,14,0,62946
+BUILD_REVISION = f5e27a12
 BUILD_TIMESTAMP = <none>
+BUILD_VERSION = 1.14.0.62946
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CC_FOR_BUILD = gcc
-CFLAGS = -g -O2 -Wall -Wcast-align -Wshadow -Wstrict-prototypes -Wformat -Wno-format-y2k -Wformat-security -W -Wextra -Wbad-function-cast -Wwrite-strings -Wdeclaration-after-statement -Wno-missing-field-initializers -Wno-sign-compare -Wpointer-arith
+CFLAGS = -g -O2 -Wall -Wcast-align -Wshadow -Wstrict-prototypes -Wno-format-y2k -Wno-missing-field-initializers -Wno-sign-compare -Wno-format-zero-length -Wno-format-truncation -Wno-sizeof-pointer-div -W -Wextra -Wbad-function-cast -Wwrite-strings -Wdeclaration-after-statement -Wformat -Wformat-security -Wpointer-arith
 CPP = gcc -E
 CPPFLAGS = 
 CXX = g++ -std=c++11
@@ -256,12 +256,13 @@ GOBJECT_QUERY =
 GPGME_CONFIG_API_VERSION = 1
 GPGME_CONFIG_AVAIL_LANG = cl cpp 
 GPGME_CONFIG_CFLAGS = 
-GPGME_CONFIG_HOST = x86_64-apple-darwin17.7.0
+GPGME_CONFIG_HOST = x86_64-apple-darwin18.6.0
 GPGME_CONFIG_LIBS = -lgpgme
 GPGME_QTTEST_CFLAGS = 
 GPGME_QTTEST_LIBS = 
 GPGME_QT_CFLAGS = 
 GPGME_QT_LIBS = 
+GPGRT_CONFIG = 
 GPG_ERROR_CFLAGS = -I/Users/toberndo/dev/gpgme/bin/include
 GPG_ERROR_CONFIG = /Users/toberndo/dev/gpgme/bin/bin/gpg-error-config
 GPG_ERROR_LIBS = -L/Users/toberndo/dev/gpgme/bin/lib -lgpg-error
@@ -277,20 +278,21 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
 LD = /Library/Developer/CommandLineTools/usr/bin/ld
+LDADD_FOR_TESTS_KLUDGE = 
 LDFLAGS = 
 LIBASSUAN_CFLAGS = -I/Users/toberndo/dev/gpgme/bin/include
 LIBASSUAN_CONFIG = /Users/toberndo/dev/gpgme/bin/bin/libassuan-config
 LIBASSUAN_LIBS = -lassuan -L/Users/toberndo/dev/gpgme/bin/lib -lgpg-error
-LIBGPGMEPP_LT_AGE = 7
-LIBGPGMEPP_LT_CURRENT = 13
+LIBGPGMEPP_LT_AGE = 10
+LIBGPGMEPP_LT_CURRENT = 16
 LIBGPGMEPP_LT_REVISION = 0
-LIBGPGME_LT_AGE = 20
-LIBGPGME_LT_CURRENT = 31
+LIBGPGME_LT_AGE = 22
+LIBGPGME_LT_CURRENT = 33
 LIBGPGME_LT_REVISION = 1
 LIBOBJS = 
 LIBQGPGME_LT_AGE = 3
 LIBQGPGME_LT_CURRENT = 10
-LIBQGPGME_LT_REVISION = 2
+LIBQGPGME_LT_REVISION = 4
 LIBS = 
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LIPO = lipo
@@ -310,12 +312,12 @@ OBJEXT = o
 OTOOL = otool
 OTOOL64 = :
 PACKAGE = gpgme
-PACKAGE_BUGREPORT = http://bugs.gnupg.org
+PACKAGE_BUGREPORT = https://bugs.gnupg.org
 PACKAGE_NAME = gpgme
-PACKAGE_STRING = gpgme 1.11.2-beta237
+PACKAGE_STRING = gpgme 1.14.0
 PACKAGE_TARNAME = gpgme
 PACKAGE_URL = 
-PACKAGE_VERSION = 1.11.2-beta237
+PACKAGE_VERSION = 1.14.0
 PATH_SEPARATOR = :
 PKG_CONFIG = /usr/local/bin/pkg-config
 PYTHON = 
@@ -339,11 +341,11 @@ STRIP = strip
 SWIG = 
 SWIG_LIB = 
 SYSROOT = 
-VERSION = 1.11.2-beta237
+VERSION = 1.14.0
 VERSION_MAJOR = 1
-VERSION_MICRO = 2
-VERSION_MINOR = 11
-VERSION_NUMBER = 0x010b02
+VERSION_MICRO = 0
+VERSION_MINOR = 14
+VERSION_NUMBER = 0x010e00
 abs_builddir = /Users/toberndo/dev/gpgme/gpgme/lang/js
 abs_srcdir = /Users/toberndo/dev/gpgme/gpgme/lang/js
 abs_top_builddir = /Users/toberndo/dev/gpgme/gpgme
@@ -358,10 +360,10 @@ am__quote =
 am__tar = $${TAR-tar} chof - "$$tardir"
 am__untar = $${TAR-tar} xf -
 bindir = ${exec_prefix}/bin
-build = x86_64-apple-darwin17.7.0
+build = x86_64-apple-darwin18.6.0
 build_alias = 
 build_cpu = x86_64
-build_os = darwin17.7.0
+build_os = darwin18.6.0
 build_vendor = apple
 builddir = .
 datadir = ${datarootdir}
@@ -372,10 +374,10 @@ emacs_local_vars_begin = Local Variables:
 emacs_local_vars_end = End:
 emacs_local_vars_read_only = buffer-read-only: t
 exec_prefix = ${prefix}
-host = x86_64-apple-darwin17.7.0
+host = x86_64-apple-darwin18.6.0
 host_alias = 
 host_cpu = x86_64
-host_os = darwin17.7.0
+host_os = darwin18.6.0
 host_vendor = apple
 htmldir = ${docdir}
 includedir = ${prefix}/include
@@ -407,6 +409,7 @@ top_srcdir = ../..
 SUBDIRS = src BrowserTestExtension DemoExtension
 EXTRA_DIST = build_extensions.sh \
              jsdoc.conf \
+             jsdoc_index.md \
              .eslintrc.json \
              package.json \
              README \
